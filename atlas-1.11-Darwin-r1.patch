@@ -1,0 +1,304 @@
+diff -urp atlas-1.11/src/AtlasCore.cpp atlas-1.11-macos/src/AtlasCore.cpp
+--- atlas-1.11/src/AtlasCore.cpp	2010-06-02 12:42:14
++++ atlas-1.11-macos/src/AtlasCore.cpp	2024-07-28 13:04:00
+@@ -4,6 +4,7 @@
+ //-----------------------------------------------------------------------------
+ 
+ #include "stdafx.h"
++#include <cstdio>
+ #include <string>
+ #include <cmath>
+ #include <vector>
+@@ -25,6 +26,10 @@
+ #include "PointerHandler.h"
+ #include "AtlasExtension.h"
+ 
++#ifndef _snprintf
++    #define _snprintf snprintf
++#endif
++
+ using namespace std;
+ 
+ // Constructor
+@@ -779,7 +784,7 @@ bool AtlasCore::ActivateTable(std::string& TableName)
+ 	{
+ 		ostringstream ErrorStr;
+ 		ErrorStr << "Uninitialized variable " << TableName << " used";
+-		Logger.ReportError(CurrentLine, "Uninitialized variable '%s' used", TableName);
++        Logger.ReportError(CurrentLine, "Uninitialized variable '%s' used", TableName.c_str());
+ 		return false;
+ 	}
+ 	else
+@@ -880,7 +885,7 @@ bool AtlasCore::ExecuteExtension(std::string& ExtId, s
+ 		}
+ 		else
+ 		{
+-			Logger.ReportError(CurrentLine, "EXTEXEC   Extension function '%s' returning WRITE_POINTER has an unsupported PointerSize field", FunctionName);
++            Logger.ReportError(CurrentLine, "EXTEXEC   Extension function '%s' returning WRITE_POINTER has an unsupported PointerSize field", FunctionName.c_str());
+ 			Success = false;
+ 		}
+ 	}
+@@ -972,7 +977,11 @@ __int64 StringToInt64(string& NumberString)
+ 	__int64 Num = 0;
+ 	bool bNeg = false;
+ 	size_t Pos = 0;
++#ifdef _WIN32
+ 	unsigned __int64 Mult;
++#else
++    unsigned long long Mult;
++#endif
+ 
+ 	if(NumberString[Pos] == '$') // hex
+ 	{
+diff -urp atlas-1.11/src/AtlasExtension.cpp atlas-1.11-macos/src/AtlasExtension.cpp
+--- atlas-1.11/src/AtlasExtension.cpp	2003-06-09 09:51:50
++++ atlas-1.11-macos/src/AtlasExtension.cpp	2024-07-28 13:10:33
+@@ -1,6 +1,10 @@
+ #include "stdafx.h"
+ #include <string>
++#ifdef _WIN32
+ #include <windows.h>
++#else
++#include <dlfcn.h>
++#endif
+ #include "AtlasExtension.h"
+ #include "AtlasLogger.h"
+ #include "AtlasCore.h"
+@@ -86,13 +90,22 @@ AtlasExtension::~AtlasExtension()
+ 
+ AtlasExtension::~AtlasExtension()
+ {
+-	if(Extension)
+-		FreeLibrary(Extension);
++	if(Extension) {
++#ifdef _WIN32
++ 		FreeLibrary(Extension);
++#else
++		dlclose(Extension);
++#endif
++	}
+ }
+ 
+ bool AtlasExtension::LoadExtension(string& ExtensionName)
+ {
++#ifdef _WIN32
+ 	Extension = LoadLibraryA(ExtensionName.c_str());
++#else
++	Extension = dlopen(ExtensionName.c_str(), RTLD_LAZY);
++#endif
+ 	
+ 	if(Extension)
+ 		return true;
+@@ -113,7 +126,11 @@ ExtensionFunction AtlasExtension::GetFunction(string& 
+ 	if(NULL == Extension)
+ 		return NULL;
+ 
++#ifdef _WIN32
+ 	ExtensionFunction func = (ExtensionFunction)GetProcAddress(Extension, FunctionName.c_str());
++#else
++    ExtensionFunction func = (ExtensionFunction)dlsym(Extension, FunctionName.c_str());
++#endif
+ 
+ 	return func;
+ }
+\ No newline at end of file
+Only in atlas-1.11-macos/src: AtlasExtension.cpp.orig
+Only in atlas-1.11-macos/src: AtlasExtension.cpp.rej
+diff -urp atlas-1.11/src/AtlasExtension.h atlas-1.11-macos/src/AtlasExtension.h
+--- atlas-1.11/src/AtlasExtension.h	2003-06-10 04:43:32
++++ atlas-1.11-macos/src/AtlasExtension.h	2024-07-28 13:04:00
+@@ -1,9 +1,15 @@
+ #pragma once
+ #include <string>
+ #include <list>
++#ifdef _WIN32
+ #include <windows.h>
++#endif
+ #include "Table.h"
+ #include "GenericVariable.h"
++
++#ifndef HMODULE
++    #define HMODULE void *
++#endif
+ 
+ const unsigned int MAX_RETURN_VAL = 3;
+ 
+diff -urp atlas-1.11/src/AtlasFile.cpp atlas-1.11-macos/src/AtlasFile.cpp
+--- atlas-1.11/src/AtlasFile.cpp	2010-08-10 15:40:10
++++ atlas-1.11-macos/src/AtlasFile.cpp	2024-07-28 13:04:00
+@@ -201,7 +201,7 @@ bool AtlasFile::DisableAutoExtension(string& FuncName,
+ 	it = ExtAutoWrite.find(EndTag);
+ 	if(it == ExtAutoWrite.end())
+ 	{
+-		Logger.ReportError(CurrentLine, "'%s' has not been defined as an autoexec end token", EndTag);
++		Logger.ReportError(CurrentLine, "'%s' has not been defined as an autoexec end token", EndTag.c_str());
+ 		return false;
+ 	}
+ 	ExtAutoWrite.erase(it);
+@@ -247,12 +247,12 @@ bool AtlasFile::AutoWrite(AtlasExtension* Ext, string&
+ 	Func = Ext->GetFunction(FuncName);
+ 	if(!EndTokenFound)
+ 	{
+-		Logger.ReportError(CurrentLine, "'%s' has not been defined as an end token in the active table", EndTag);
++        Logger.ReportError(CurrentLine, "'%s' has not been defined as an end token in the active table", EndTag.c_str());
+ 		return false;
+ 	}
+ 	if(Func == NULL)
+ 	{
+-		Logger.ReportError(CurrentLine, "Function 's' could not be found in the extension", FuncName);
++        Logger.ReportError(CurrentLine, "Function 's' could not be found in the extension", FuncName.c_str());
+ 		return false;
+ 	}
+ 
+@@ -338,7 +338,7 @@ bool AtlasFile::FlushText()
+ 				Context = NULL;
+ 				if(!Success)
+ 				{
+-					Logger.ReportError(CurrentLine, "Autoexecuting extension with end token '%s' failed", i->EndToken);
++					Logger.ReportError(CurrentLine, "Autoexecuting extension with end token '%s' failed", i->EndToken.c_str());
+ 					return false;
+ 				}
+ 				else
+@@ -423,8 +423,10 @@ inline unsigned int AtlasFile::WritePascalString(strin
+ 	Stats.AddScriptBytes(size+PascalLength);
+ 
+ 	// Truncate string if it overflows ROM bounds
+-	if(PascalLength > maxwrite) // PascalLength doesn't even fit
+-		goto nowrite;
++	if(PascalLength > maxwrite) { // PascalLength doesn't even fit
++		//goto nowrite;
++		return size+PascalLength;
++	}
+ 	if(maxwrite < size + PascalLength) // PascalLength and maybe partial string fits
+ 	{
+ 		int overflowbytes = (size+PascalLength) - maxwrite;
+@@ -469,7 +471,11 @@ inline void AtlasFile::AlignString()
+ 	}
+ }
+ 
++#ifdef __clang__
++unsigned int AtlasFile::GetMaxWritableBytes()
++#else
+ inline unsigned int AtlasFile::GetMaxWritableBytes()
++#endif
+ {
+ 	if(MaxScriptPos == -1)
+ 		return -1;
+diff -urp atlas-1.11/src/AtlasFile.h atlas-1.11-macos/src/AtlasFile.h
+--- atlas-1.11/src/AtlasFile.h	2010-06-02 11:38:42
++++ atlas-1.11-macos/src/AtlasFile.h	2024-07-28 13:04:00
+@@ -49,7 +49,11 @@ class AtlasFile (public)
+ 	bool InsertText(string& Text, unsigned int Line);
+ 	bool FlushText();
+ 
++#ifdef __clang__
++    unsigned int GetMaxWritableBytes();
++#else
+ 	inline unsigned int GetMaxWritableBytes();
++#endif
+ 	FILE* GetFileT();
+ 	FILE* GetFileP();
+ 	void GetScriptBuf(list<TBL_STRING>& Strings);
+diff -urp atlas-1.11/src/AtlasLogger.cpp atlas-1.11-macos/src/AtlasLogger.cpp
+--- atlas-1.11/src/AtlasLogger.cpp	2003-06-02 11:53:30
++++ atlas-1.11-macos/src/AtlasLogger.cpp	2024-07-28 13:04:00
+@@ -5,6 +5,10 @@
+ #include <cstdarg>
+ #include "AtlasLogger.h"
+ 
++#ifndef _vsnprintf
++    #define _vsnprintf vsnprintf
++#endif
++
+ using namespace std;
+ 
+ AtlasLogger Logger;
+diff -urp atlas-1.11/src/AtlasMain.cpp atlas-1.11-macos/src/AtlasMain.cpp
+--- atlas-1.11/src/AtlasMain.cpp	2010-08-10 15:49:44
++++ atlas-1.11-macos/src/AtlasMain.cpp	2024-07-28 13:04:00
+@@ -8,7 +8,11 @@ using namespace std;
+ 
+ using namespace std;
+ 
++#ifdef _WIN32
+ int _tmain(int argc, _TCHAR* argv[])
++#else
++int main(int argc, char* argv[])
++#endif
+ {
+ 	clock_t StartTime, EndTime, ElapsedTime;
+ 	int argoff = 0;
+diff -urp atlas-1.11/src/AtlasParser.cpp atlas-1.11-macos/src/AtlasParser.cpp
+--- atlas-1.11/src/AtlasParser.cpp	2010-08-06 22:57:28
++++ atlas-1.11-macos/src/AtlasParser.cpp	2024-07-28 13:04:00
+@@ -137,7 +137,7 @@ inline void AtlasParser::ParseCommand(string& line)
+ inline void AtlasParser::ParseCommand(string& line)
+ {
+ 	if(line[0] != '#')
+-		printf("Bug, %s %d.  Should start with a '#'\n'%s'", __FILE__, __LINE__, line);
++        printf("Bug, %s %d.  Should start with a '#'\n'%s'", __FILE__, __LINE__, line.c_str());
+ 
+ 	size_t curpos = 1;
+ 	std::string CmdStr;
+@@ -203,7 +203,7 @@ inline void AtlasParser::ParseCommand(string& line)
+ 		Logger.ReportError(CurrentLine, "Invalid argument for %s for parameter %d", CmdStr.c_str(), ParamNum);
+ 
+ 	for(ListErrorIt i = Logger.Errors.begin(); i != Logger.Errors.end(); i++)
+-		if(i->Severity = FATALERROR)
++		if(i->Severity == FATALERROR)
+ 			return;
+ 
+ 	Command.Parameters.push_back(Param);
+diff -urp atlas-1.11/src/Pointer.h atlas-1.11-macos/src/Pointer.h
+--- atlas-1.11/src/Pointer.h	2010-05-13 06:30:42
++++ atlas-1.11-macos/src/Pointer.h	2024-07-28 13:04:00
+@@ -1,6 +1,10 @@
+ #pragma once
+ #include <list>
+ 
++#ifndef __int64
++    #define __int64 __int64_t
++#endif
++
+ // MachineAddresses- The type of addressing the machine uses
+ static const unsigned int MA_INVALID = 0;
+ static const unsigned int LINEAR = 1;
+@@ -23,15 +27,15 @@ class Pointer (public)
+ 	void SetHeaderSize(const unsigned int Size);
+ 
+ 	// Pointer writing functions
+-	unsigned short Pointer::Get16BitPointer(const unsigned int ScriptPos) const;
+-	unsigned int Pointer::Get24BitPointer(const unsigned int ScriptPos) const;
+-	unsigned int Pointer::Get32BitPointer(const unsigned int ScriptPos) const;
++	unsigned short Get16BitPointer(const unsigned int ScriptPos) const;
++	unsigned int Get24BitPointer(const unsigned int ScriptPos) const;
++	unsigned int Get32BitPointer(const unsigned int ScriptPos) const;
+ 
+-	unsigned char Pointer::GetLowByte(const unsigned int ScriptPos) const;
+-	unsigned char Pointer::GetHighByte(const unsigned int ScriptPos) const;
+-	unsigned char Pointer::GetBankByte(const unsigned int ScriptPos) const;
+-	unsigned char Pointer::GetUpperByte(const unsigned int ScriptPos) const;
+-	unsigned int Pointer::GetHighWord(const unsigned int ScriptPos) const;
++	unsigned char GetLowByte(const unsigned int ScriptPos) const;
++	unsigned char GetHighByte(const unsigned int ScriptPos) const;
++	unsigned char GetBankByte(const unsigned int ScriptPos) const;
++	unsigned char GetUpperByte(const unsigned int ScriptPos) const;
++	unsigned int GetHighWord(const unsigned int ScriptPos) const;
+ 
+ protected:
+ 	unsigned int AddressType;
+diff -urp atlas-1.11/src/stdafx.h atlas-1.11-macos/src/stdafx.h
+--- atlas-1.11/src/stdafx.h	2010-05-13 07:28:42
++++ atlas-1.11-macos/src/stdafx.h	2024-07-28 13:11:11
+@@ -7,7 +7,9 @@
+ 
+ #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+ #include <stdio.h>
++#ifdef _WIN32
+ #include <tchar.h>
++#endif
+ 
+ // TODO: reference additional headers your program requires here
+ #include <string>
+Only in atlas-1.11-macos/src: stdafx.h.orig
+Only in atlas-1.11-macos/src: stdafx.h.rej
