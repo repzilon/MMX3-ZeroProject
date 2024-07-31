@@ -11,9 +11,6 @@ all: Atlas/MMX3.sfc
 help:
 	@echo "Available targets: all (default), clean, distclean"
 	@echo " * Be sure to copy the unheadered Mega Man X 3 (U) ROM image then rename it to $(BASEROM)"
-	@echo " * Also download Atlas from https://www.romhacking.net/download/utilities/224/"
-	@echo "   and copy it as Atlasv1.11.zip . Unlike Asar, it cannot be downloaded automatically"
-	@echo "   because of a CAPTCHA on romhacking.net."
 	@echo " * You will need CMake, cURL, UnZip, patch and compiler command line tools (obviously)"
 
 asar-$(ASAR_VERSION).tar.gz:
@@ -44,32 +41,32 @@ MMX3.sfc: $(BASEROM) asar-$(ASAR_VERSION)-$(MACHINE)-$(OS)/asar/bin/asar
 	asar-$(ASAR_VERSION)-$(MACHINE)-$(OS)/asar/bin/asar "MMX3_Objects.asm" "MMX3.sfc"
 	asar-$(ASAR_VERSION)-$(MACHINE)-$(OS)/asar/bin/asar "MMX3_SpriteSetup.asm" "MMX3.sfc"
 
-atlas-1.11/src/AtlasMain.cpp: Atlasv1.11.zip
-	mkdir atlas-1.11
-	unzip -d atlas-1.11 "Atlasv1.11.zip"
+atlas-1.11_p3-repzilon.zip:
+	curl https://codeload.github.com/repzilon/Atlas/zip/refs/heads/main -o atlas-1.11_p3-repzilon.zip
 
-atlas-1.11/src/atlas: atlas-1.11/src/AtlasMain.cpp
-	@# TODO : improve the patch portability (I probably messed up with compiler defines)
-	patch -p0 < atlas-1.11-$(OS)-r1.patch
+Atlas-main/AtlasMain.cpp: atlas-1.11_p3-repzilon.zip
+	unzip atlas-1.11_p3-repzilon.zip
+
+Atlas-main/atlas: Atlas-main/AtlasMain.cpp
 	@# TODO : convert to a proper parallel build
-	$(CXX) $(CXXFLAGS_OPTIM) -pipe $(CXXFLAGS_WARNINGS) atlas-1.11/src/*.cpp -ldl -o atlas-1.11/src/atlas
+	$(CXX) $(CXXFLAGS_OPTIM) -pipe $(CXXFLAGS_WARNINGS) Atlas-main/*.cpp -ldl -o Atlas-main/atlas
 
-Atlas/MMX3.sfc: MMX3.sfc atlas-1.11/src/atlas
+Atlas/MMX3.sfc: MMX3.sfc Atlas-main/atlas
 	cp -f MMX3.sfc Atlas
 	@# TODO : parallelism and verbosity control
 	@# FIXME : my crude Atlas port builds but cannot process the files correctly
 	make -C Atlas
 
 clean:
-	rm -rf asar-*
+	rm -rf asar-*/
 	rm -rf asar-*-$(MACHINE)-$(OS)
-	rm -rf atlas-1.11
+	rm -rf Atlas-main
 	rm -f MMX3.sfc
 	rm -f Atlas/MMX3.sfc
 
 distclean: clean
 	rm -f $(BASEROM)
 	rm -f asar-*.tar.gz
-	rm -f Atlasv1.11.zip
+	rm -f atlas-1.11_p3-repzilon.zip
 
 .PHONY : all help clean distclean
