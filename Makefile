@@ -3,7 +3,7 @@ MACHINE := $(shell uname -m)
 ASAR_VERSION := 1.91
 BASEROM := Base_ROM.sfc
 CXX := c++
-CXXFLAGS_OPTIM := -O2
+CXXFLAGS_OPTIM := -O2 -pipe
 CXXFLAGS_WARNINGS := -Wno-deprecated-declarations
 
 all: Atlas/MMX3.sfc
@@ -11,7 +11,7 @@ all: Atlas/MMX3.sfc
 help:
 	@echo "Available targets: all (default), clean, distclean"
 	@echo " * Be sure to copy the unheadered Mega Man X 3 (U) ROM image then rename it to $(BASEROM)"
-	@echo " * You will need CMake, cURL, UnZip, patch and compiler command line tools (obviously)"
+	@echo " * You will need CMake, cURL, UnZip and compiler command line tools (obviously)"
 
 asar-$(ASAR_VERSION).tar.gz:
 	curl https://codeload.github.com/RPGHacker/asar/tar.gz/refs/tags/v$(ASAR_VERSION) -o asar-$(ASAR_VERSION).tar.gz
@@ -49,7 +49,7 @@ Atlas-main/AtlasMain.cpp: atlas-1.11_p3-repzilon.zip
 
 Atlas-main/atlas: Atlas-main/AtlasMain.cpp
 	@# TODO : convert to a proper parallel build
-	$(CXX) $(CXXFLAGS_OPTIM) -pipe $(CXXFLAGS_WARNINGS) Atlas-main/*.cpp -ldl -o Atlas-main/atlas
+	$(CXX) $(CXXFLAGS_OPTIM) $(CXXFLAGS_WARNINGS) Atlas-main/*.cpp -ldl -o Atlas-main/atlas
 
 Atlas/MMX3.sfc: MMX3.sfc Atlas-main/atlas
 	cp -f MMX3.sfc Atlas
