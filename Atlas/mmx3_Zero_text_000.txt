@@ -505,7 +505,7 @@ I'm here to destroy[LINES]you and Sigma once[LINES]and for all![LINES][BUTTONPRE
 [PAUSE30][SPEAKER1]
 [COLOR0](X)[LINES]Was that Mac...?[LINES][PAUSE10]I can't believe it![LINES][BUTTONPRESS][SCROLL6]
 [PAUSE30][SPEAKER2]
-[COLOR2](ZERO)[LINES]Seems like some of[LINES]of the Hunters have[LINES]gone Maverick too.[LINES][BUTTONPRESS][SCROLL8]
+[COLOR2](ZERO)[LINES]Seems like some of[LINES]the Hunters have[LINES]gone Maverick too.[LINES][BUTTONPRESS][SCROLL8]
 [PAUSE30]Best to keep your[LINES]guard up.[LINES][BUTTONPRESS][SCROLL4]
 [PAUSE30][SPEAKER1]
 [COLOR0](X)[LINES]Right. I'll go back[LINES]and sweep the[LINES]perimeter.[LINES][BUTTONPRESS][SCROLL8]
